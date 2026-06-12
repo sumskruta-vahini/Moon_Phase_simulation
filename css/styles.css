@@ -1,0 +1,905 @@
+/* ════════════════════════════════════════════════════════════════
+   Constellation Explorer — visual system
+   Presentation layer only. No functional / data / engine changes.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Type families ── */
+  --font-display: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui:      'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* ── Type scale (root = 16px) ── */
+  --text-2xs:  0.6875rem;  /* 11px — overlines, labels      */
+  --text-xs:   0.75rem;    /* 12px — secondary / captions   */
+  --text-sm:   0.8125rem;  /* 13px — compact UI             */
+  --text-md:   0.875rem;   /* 14px — table / dense reading  */
+  --text-base: 0.9375rem;  /* 15px — body / mythology       */
+  --text-lg:   1.125rem;   /* 18px — sub-heads              */
+  --text-xl:   1.5rem;     /* 24px — constellation title    */
+
+  /* ── Spacing scale (4px base) ── */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  /* ── Surfaces (deep-space ramp) ── */
+  --clr-void:       #060B14;
+  --clr-space:      #0C1424;
+  --clr-panel:      #111C30;
+  --clr-surface:    #16243C;
+  --clr-surface-2:  #1B2C49;
+  --clr-active:     #21345A;
+  --clr-border:     #22335A;
+  --clr-border-soft: rgba(111, 150, 215, 0.10);
+
+  /* ── Interactive accent: astronomical cyan ── */
+  --clr-cyan:      #6FC3FF;
+  --clr-cyan-dim:  rgba(111, 195, 255, 0.14);
+
+  /* ── Educational / stellar accent: warm gold ── */
+  --clr-gold:      #FFD37A;
+  --clr-gold-soft: #FFE3A6;
+  --clr-gold-dim:  rgba(255, 211, 122, 0.14);
+
+  /* ── Text tiers (all AA on panel/void) ── */
+  --clr-text-hi:   #EEF3FF;
+  --clr-text-mid:  #ABC1DF;
+  --clr-text-low:  #7E97C0;
+
+  /* ── Spectral-type hues (Stars table cue) ── */
+  --spec-o: #A7C0FF;  --spec-b: #BCD0FF;  --spec-a: #EAF0FF;
+  --spec-f: #FBF8EF;  --spec-g: #FFE9A8;  --spec-k: #FFC987;  --spec-m: #FF9E78;
+
+  /* ── Radii / elevation ── */
+  --radius:    8px;
+  --radius-sm: 5px;
+  --shadow-panel: -8px 0 32px -16px rgba(0, 0, 0, 0.8);
+  --shadow-pop:   0 6px 20px -8px rgba(0, 0, 0, 0.7);
+
+  --sidebar-w: 340px;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background: var(--clr-void);
+  color: var(--clr-text-hi);
+  overflow: hidden;
+}
+
+/* ── Global focus: cyan = "interactive" ───────────────────── */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--clr-cyan);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ── App shell — 75/25 split (unchanged layout) ───────────── */
+#app {
+  display: grid;
+  grid-template-columns: 1fr var(--sidebar-w);
+  height: 100vh;
+  background: var(--clr-void);
+}
+
+/* ── Sky canvas ───────────────────────────────────────────── */
+#canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--clr-void);
+  min-width: 0;
+}
+
+/* Soft vignette frames the chart — pointer-transparent, decorative */
+#canvas-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 160px 20px rgba(0, 0, 0, 0.55);
+}
+
+#sky-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: default; /* pointer is applied via JS only when over a selectable star */
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+#sidebar {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  background: var(--clr-panel);
+  border-left: 1px solid var(--clr-border);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Header */
+.sidebar-header {
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+}
+
+.sidebar-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--clr-text-hi);
+}
+.sidebar-title::after {
+  content: "Interactive sky atlas";
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clr-text-low);
+}
+
+/* ── Search ───────────────────────────────────────────────── */
+.search-wrap {
+  padding: 0 var(--sp-5) var(--sp-4);
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: calc(var(--sp-5) + var(--sp-3));
+  top: 9px;
+  display: flex;
+  color: var(--clr-text-low);
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+.search-icon svg { width: 15px; height: 15px; display: block; }
+
+#search-input {
+  width: 100%;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  color: var(--clr-text-hi);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  padding: 9px 12px 9px 36px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+#search-input::placeholder { color: var(--clr-text-low); }
+
+#search-input:hover { border-color: var(--clr-surface-2); }
+
+#search-input:focus {
+  border-color: var(--clr-cyan);
+  background: var(--clr-space);
+  box-shadow: 0 0 0 3px var(--clr-cyan-dim);
+}
+.search-wrap:focus-within .search-icon { color: var(--clr-cyan); }
+
+#no-results {
+  margin-top: var(--sp-2);
+  font-size: var(--text-xs);
+  color: var(--clr-text-low);
+}
+
+/* ── Constellation list ───────────────────────────────────── */
+#constellation-list {
+  list-style: none;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--clr-border) transparent;
+  min-height: 0;
+}
+#constellation-list::-webkit-scrollbar       { width: 6px; }
+#constellation-list::-webkit-scrollbar-thumb { background: var(--clr-border); border-radius: 3px; }
+#constellation-list::-webkit-scrollbar-thumb:hover { background: var(--clr-surface-2); }
+
+.con-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.13s ease, border-color 0.13s ease, transform 0.13s ease;
+}
+.con-item + .con-item { margin-top: 2px; }
+
+/* Hover = cyan (interactive) */
+.con-item:hover {
+  background: var(--clr-surface);
+  border-left-color: var(--clr-cyan);
+}
+.con-item:focus-visible {
+  outline: 2px solid var(--clr-cyan);
+  outline-offset: -2px;
+}
+
+/* Selected = gold (stellar) */
+.con-item.active {
+  background: var(--clr-active);
+  border-left-color: var(--clr-gold);
+}
+.con-item.active .con-name { color: var(--clr-gold); }
+.con-item.active .con-nick { color: var(--clr-text-mid); }
+
+.con-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--clr-text-hi);
+}
+.con-nick {
+  font-size: var(--text-xs);
+  color: var(--clr-text-low);
+}
+
+/* ── Details panel ────────────────────────────────────────── */
+#details-panel {
+  border-top: 1px solid var(--clr-border);
+  overflow-y: auto;
+  max-height: 54vh;
+  background: var(--clr-space);
+  scrollbar-width: thin;
+  scrollbar-color: var(--clr-border) transparent;
+  padding: var(--sp-5);
+}
+#details-panel::-webkit-scrollbar       { width: 6px; }
+#details-panel::-webkit-scrollbar-thumb { background: var(--clr-border); border-radius: 3px; }
+
+.details-placeholder {
+  color: var(--clr-text-low);
+  font-size: var(--text-sm);
+  text-align: center;
+  padding: var(--sp-8) var(--sp-4);
+  line-height: 1.6;
+}
+.details-placeholder::before {
+  content: "✦";
+  display: block;
+  font-size: 22px;
+  color: var(--clr-gold);
+  opacity: 0.65;
+  margin-bottom: var(--sp-2);
+}
+
+/* 1 ── Title block (top of the scan path) */
+.cx-head { margin-bottom: var(--sp-5); }
+.cx-titlerow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.cx-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--clr-text-hi);
+}
+.cx-abbr {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--clr-gold);
+  background: var(--clr-gold-dim);
+  border: 1px solid rgba(255, 211, 122, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.cx-nick {
+  margin-top: var(--sp-2);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--clr-text-mid);
+}
+
+/* 2 ── Key info: stat chips */
+.cx-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}
+.cx-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3) var(--sp-2);
+}
+.cx-stat-label {
+  font-size: 0.625rem;          /* 10px overline */
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--clr-text-low);
+}
+.cx-stat-value {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--clr-text-hi);
+  line-height: 1.25;
+}
+
+/* 3 ── Sections */
+.cx-section { margin-top: var(--sp-5); }
+.cx-section:first-of-type { margin-top: 0; }
+.cx-section-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clr-cyan);
+  margin-bottom: var(--sp-3);
+}
+.cx-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--clr-border), transparent);
+}
+.cx-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0;
+  color: var(--clr-text-low);
+  background: var(--clr-surface);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* 4 ── Mythology / educational reading */
+.cx-myth {
+  font-size: var(--text-base);
+  line-height: 1.7;
+  color: var(--clr-text-mid);
+}
+
+/* Key facts */
+.cx-facts {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.cx-facts li {
+  position: relative;
+  padding-left: var(--sp-5);
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--clr-text-hi);
+}
+.cx-facts li::before {
+  content: "★";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-size: 11px;
+  color: var(--clr-gold);
+}
+
+/* 5 ── Stars table (scientific data) */
+.cx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+}
+.cx-table thead th {
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--clr-text-low);
+  text-align: left;
+  padding: 0 var(--sp-2) var(--sp-2);
+  border-bottom: 1px solid var(--clr-border);
+}
+.cx-table th.cx-num, .cx-table td.cx-num { text-align: right; }
+.cx-table tbody td {
+  padding: 7px var(--sp-2);
+  border-bottom: 1px solid var(--clr-border-soft);
+  color: var(--clr-text-mid);
+}
+.cx-table tbody tr:last-child td { border-bottom: none; }
+.cx-table tbody tr:hover td { background: var(--clr-surface); }
+.cx-star-name {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  color: var(--clr-text-hi);
+}
+.cx-mag { color: var(--clr-gold-soft); }
+
+/* Spectral-type colour cue (decorative; letter still shown) */
+.cx-spec { font-weight: 500; }
+.cx-spec[data-spec="O"] { color: var(--spec-o); }
+.cx-spec[data-spec="B"] { color: var(--spec-b); }
+.cx-spec[data-spec="A"] { color: var(--spec-a); }
+.cx-spec[data-spec="F"] { color: var(--spec-f); }
+.cx-spec[data-spec="G"] { color: var(--spec-g); }
+.cx-spec[data-spec="K"] { color: var(--spec-k); }
+.cx-spec[data-spec="M"] { color: var(--spec-m); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 680px) {
+  html, body { overflow: auto; }
+
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 56vw auto;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #canvas-wrap {
+    height: 56vw;
+    min-height: 240px;
+    border-bottom: 1px solid var(--clr-border);
+  }
+
+  #sidebar {
+    grid-template-rows: auto auto auto auto;
+    max-height: none;
+    border-left: none;
+    box-shadow: none;
+  }
+
+  #details-panel { max-height: none; }
+  .cx-stats { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Storyboard flow — Screens 1, 2, 4, 5, Results (presentation layer)
+   Screen 3 (the explorer) is untouched; these overlay above it.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn-lg { padding: 13px 26px; font-size: var(--text-md); }
+
+.btn-primary {
+  background: var(--clr-cyan);
+  color: #06121f;
+}
+.btn-primary:hover { background: #8ad0ff; }
+.btn-primary:disabled {
+  background: var(--clr-surface-2);
+  color: var(--clr-text-low);
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--clr-text-mid);
+  border-color: var(--clr-border);
+}
+.btn-ghost:hover { background: var(--clr-surface); color: var(--clr-text-hi); }
+
+/* ── Full-page overlay screens ────────────────────────────── */
+.screen-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  padding: var(--sp-6);
+  overflow-y: auto;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, rgba(111,195,255,0.06), transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, rgba(255,211,122,0.05), transparent 60%),
+    var(--clr-void);
+}
+.screen-overlay.is-active { display: grid; place-items: center; }
+
+.flow-card {
+  width: 100%;
+  max-width: 620px;
+  background: var(--clr-panel);
+  border: 1px solid var(--clr-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  padding: var(--sp-8);
+}
+.flow-card--center { text-align: center; max-width: 520px; }
+
+.flow-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--clr-cyan);
+  margin-bottom: var(--sp-3);
+}
+.flow-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--clr-text-hi);
+  margin-bottom: var(--sp-3);
+  outline: none;
+}
+.flow-lead {
+  font-size: var(--text-base);
+  line-height: 1.65;
+  color: var(--clr-text-mid);
+  margin-bottom: var(--sp-5);
+}
+.flow-subhead {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clr-gold);
+  margin-bottom: var(--sp-3);
+}
+
+.flow-objectives {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}
+.flow-objectives li {
+  position: relative;
+  padding-left: var(--sp-5);
+  font-size: var(--text-md);
+  line-height: 1.55;
+  color: var(--clr-text-hi);
+}
+.flow-objectives li::before {
+  content: "★";
+  position: absolute; left: 0; top: 1px;
+  color: var(--clr-gold);
+  font-size: 11px;
+}
+
+/* Flow step chips (intro) */
+.flow-steps {
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-6);
+}
+.flow-steps li {
+  counter-increment: step;
+  font-size: var(--text-2xs);
+  color: var(--clr-text-mid);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border-soft);
+  border-radius: 999px;
+  padding: 5px 11px 5px 8px;
+}
+.flow-steps li::before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 16px; height: 16px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--clr-cyan-dim);
+  color: var(--clr-cyan);
+  font-weight: 700;
+  font-size: 9px;
+}
+
+/* Controls guide (Screen 2) */
+.flow-guide {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.flow-guide li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border-soft);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+}
+.flow-guide-icon {
+  flex: none;
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--clr-cyan-dim);
+  color: var(--clr-cyan);
+  font-size: 16px;
+}
+.flow-guide b { font-size: var(--text-md); color: var(--clr-text-hi); }
+.flow-guide p { font-size: var(--text-sm); color: var(--clr-text-mid); line-height: 1.5; margin-top: 2px; }
+
+.flow-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+.flow-card--center .flow-actions { justify-content: center; }
+
+/* ── Mode dock (hub: Explore · Observation · Quiz · Help) ──── */
+.mode-dock {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 30;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  background: rgba(17, 28, 48, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--clr-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-pop);
+}
+.mode-dock.is-active { display: flex; }
+
+.dock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-text-mid);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease;
+}
+.dock-btn:hover { background: var(--clr-surface); color: var(--clr-text-hi); }
+.dock-ico { font-size: 14px; line-height: 1; color: var(--clr-text-low); }
+.dock-btn:hover .dock-ico { color: var(--clr-cyan); }
+
+/* Active mode = gold (the "you are here" stellar accent) */
+.dock-btn.is-current {
+  background: var(--clr-gold-dim);
+  color: var(--clr-gold-soft);
+}
+.dock-btn.is-current .dock-ico { color: var(--clr-gold); }
+
+.dock-btn--icon {
+  padding: 8px 11px;
+  font-size: var(--text-md);
+}
+.dock-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--clr-border);
+  margin: 0 2px;
+}
+
+/* ── Overlay close button (quiz, etc.) ────────────────────── */
+.flow-card { position: relative; }
+.flow-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--clr-text-low);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.13s ease, background 0.13s ease;
+}
+.flow-close:hover { color: var(--clr-text-hi); background: var(--clr-surface); }
+
+/* ── Observation activity card (Screen 4) ─────────────────── */
+.activity-card {
+  display: none;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 30;
+  width: min(340px, calc(100% - 32px));
+  background: rgba(13, 22, 40, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--clr-border);
+  border-left: 3px solid var(--clr-gold);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  padding: var(--sp-4);
+}
+.activity-card.is-active { display: block; }
+.activity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.activity-spacer { flex: 1; }
+.activity-close {
+  flex: none;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  font-size: 16px; line-height: 1;
+  color: var(--clr-text-low);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.13s ease, background 0.13s ease;
+}
+.activity-close:hover { color: var(--clr-text-hi); background: var(--clr-surface); }
+.activity-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.btn-sm { padding: 7px 12px; font-size: var(--text-xs); }
+.activity-kicker {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--clr-gold);
+}
+.activity-progress {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--clr-text-mid);
+}
+.activity-prompt {
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--clr-text-hi);
+  margin-bottom: var(--sp-2);
+}
+.activity-hint { font-size: var(--text-xs); color: var(--clr-text-low); line-height: 1.45; }
+.activity-feedback {
+  margin-top: var(--sp-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+}
+.activity-feedback.ok { color: var(--clr-gold-soft); background: var(--clr-gold-dim); }
+.activity-feedback.no { color: var(--clr-cyan); background: var(--clr-cyan-dim); }
+.activity-complete { font-size: var(--text-md); font-weight: 600; color: var(--clr-gold-soft); margin-bottom: var(--sp-2); }
+.activity-sub { font-size: var(--text-xs); color: var(--clr-text-mid); line-height: 1.5; }
+.activity-dots { display: flex; gap: 6px; margin-top: var(--sp-3); }
+.activity-dots i {
+  width: 100%; height: 4px; border-radius: 2px;
+  background: var(--clr-border);
+}
+.activity-dots i.done    { background: var(--clr-gold); }
+.activity-dots i.current { background: var(--clr-cyan); }
+
+/* ── Quiz (Screen 5) ──────────────────────────────────────── */
+.quiz-progress { margin-bottom: var(--sp-5); }
+#quiz-progress-text {
+  display: block;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--clr-text-low);
+  margin-bottom: var(--sp-2);
+}
+.quiz-bar { height: 4px; background: var(--clr-surface); border-radius: 2px; overflow: hidden; }
+.quiz-bar i { display: block; height: 100%; background: var(--clr-cyan); transition: width 0.25s ease; }
+
+.quiz-question {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--clr-text-hi);
+  margin-bottom: var(--sp-4);
+}
+.quiz-options { display: flex; flex-direction: column; gap: var(--sp-2); }
+.quiz-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  color: var(--clr-text-hi);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.13s ease, background 0.13s ease;
+}
+.quiz-opt:hover { border-color: var(--clr-cyan); background: var(--clr-surface-2); }
+.quiz-opt.is-selected {
+  border-color: var(--clr-cyan);
+  background: var(--clr-cyan-dim);
+}
+.quiz-opt-key {
+  flex: none;
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--clr-panel);
+  border: 1px solid var(--clr-border);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--clr-text-mid);
+}
+.quiz-opt.is-selected .quiz-opt-key {
+  background: var(--clr-cyan);
+  color: #06121f;
+  border-color: var(--clr-cyan);
+}
+
+/* ── Results ──────────────────────────────────────────────── */
+.results-score {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--clr-text-hi);
+  margin-bottom: var(--sp-4);
+}
+.results-score.pass { color: var(--clr-gold-soft); }
+
+/* ── Responsive: stack flow cards on small screens ────────── */
+@media (max-width: 680px) {
+  .flow-card { padding: var(--sp-5); }
+  .activity-card { width: calc(100% - 24px); left: 12px; top: 12px; }
+  .flow-actions { flex-wrap: wrap; }
+}
+

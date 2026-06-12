@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Constellation Explorer — Interactive Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Left 75%: stellar chart ── -->
+    <div id="canvas-wrap">
+      <canvas id="sky-canvas"></canvas>
+
+      <!-- Observation Activity task card (Screen 4) — optional overlay -->
+      <aside id="activity-card" class="activity-card" aria-label="Observation activity" aria-live="polite"></aside>
+
+      <!-- Mode dock — independent access to the hub modes (Screen 3) -->
+      <div id="mode-dock" class="mode-dock" role="toolbar" aria-label="Simulation modes">
+        <button type="button" class="dock-btn" data-mode="explore">
+          <span class="dock-ico" aria-hidden="true">&#10038;</span>Explore
+        </button>
+        <button type="button" class="dock-btn" data-mode="observation">
+          <span class="dock-ico" aria-hidden="true">&#9678;</span>Observation
+        </button>
+        <button type="button" class="dock-btn" data-mode="quiz">
+          <span class="dock-ico" aria-hidden="true">&#9998;</span>Quiz
+        </button>
+        <span class="dock-sep" aria-hidden="true"></span>
+        <button type="button" class="dock-btn dock-btn--icon" data-help aria-label="How to use the explorer">&#9432;</button>
+      </div>
+    </div>
+
+    <!-- ── Right 25%: sidebar ── -->
+    <aside id="sidebar" aria-label="Constellation panel">
+
+      <header class="sidebar-header">
+        <h1 class="sidebar-title">Constellations</h1>
+      </header>
+
+      <!-- Search -->
+      <div class="search-wrap" role="search">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="7" cy="7" r="4.5" />
+            <line x1="10.5" y1="10.5" x2="14" y2="14" />
+          </svg>
+        </span>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search constellations..."
+          autocomplete="off"
+          aria-label="Search constellations"
+        />
+        <p id="no-results" hidden>No constellations found.</p>
+      </div>
+
+      <!-- Scrollable list -->
+      <ul
+        id="constellation-list"
+        role="listbox"
+        aria-label="Constellation list"
+      ></ul>
+
+      <!-- Details / info panel -->
+      <section
+        id="details-panel"
+        aria-live="polite"
+        aria-label="Constellation details"
+      ></section>
+
+    </aside>
+  </div>
+
+  <!-- ════════ Storyboard flow overlays (Screens 1, 2, 5, Results) ════════ -->
+
+  <!-- Screen 1 — Introduction -->
+  <section id="screen-intro" class="screen-overlay" aria-labelledby="intro-title">
+    <div class="flow-card">
+      <p class="flow-eyebrow">Interactive Astronomy · Screen 1</p>
+      <h1 class="flow-title" id="intro-title" tabindex="-1">Constellation Explorer</h1>
+      <p class="flow-lead">
+        Journey across the night sky and learn to recognise the great constellations —
+        their stars, shapes, and the stories behind them.
+      </p>
+      <h2 class="flow-subhead">What you'll learn</h2>
+      <ul class="flow-objectives">
+        <li>Identify 18 major constellations by their star patterns.</li>
+        <li>Locate bright stars and read their magnitude and spectral type.</li>
+        <li>Understand how constellations map to hemispheres and seasons.</li>
+        <li>Connect each pattern to the mythology and science behind it.</li>
+      </ul>
+      <ol class="flow-steps" aria-label="Activity flow">
+        <li>Introduction</li>
+        <li>How to explore</li>
+        <li>Simulation</li>
+        <li>Observation activity</li>
+        <li>Quiz</li>
+      </ol>
+      <div class="flow-actions">
+        <button type="button" class="btn btn-primary btn-lg" data-go="controls">Begin &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screen 2 — Interactive Controls (guided how-to) -->
+  <section id="screen-controls" class="screen-overlay" aria-labelledby="controls-title">
+    <div class="flow-card">
+      <p class="flow-eyebrow">Screen 2</p>
+      <h1 class="flow-title" id="controls-title" tabindex="-1">How to explore the sky</h1>
+      <p class="flow-lead">A quick tour of the controls before you enter the simulation.</p>
+      <ul class="flow-guide">
+        <li>
+          <span class="flow-guide-icon" aria-hidden="true">&#9906;</span>
+          <div><b>Search</b><p>Type a name in the sidebar to filter the constellation list.</p></div>
+        </li>
+        <li>
+          <span class="flow-guide-icon" aria-hidden="true">&#9737;</span>
+          <div><b>Select</b><p>Click a constellation in the list — or a star on the chart — to focus it.</p></div>
+        </li>
+        <li>
+          <span class="flow-guide-icon" aria-hidden="true">&#8853;</span>
+          <div><b>Adaptive zoom</b><p>The chart automatically frames the selected constellation so it fills the view.</p></div>
+        </li>
+        <li>
+          <span class="flow-guide-icon" aria-hidden="true">&#9432;</span>
+          <div><b>Details panel</b><p>Read mythology, key facts, and a sortable table of the constellation's stars.</p></div>
+        </li>
+        <li>
+          <span class="flow-guide-icon" aria-hidden="true">&#9094;</span>
+          <div><b>Keyboard</b><p>Use &uarr;/&darr; to move through the list and Enter to select.</p></div>
+        </li>
+      </ul>
+      <div class="flow-actions">
+        <button type="button" class="btn btn-ghost" data-go="intro" id="controls-back">&larr; Back</button>
+        <button type="button" class="btn btn-primary" data-go="explore" id="controls-enter">Enter Simulation &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screen 5 — Quiz / Assessment -->
+  <section id="screen-quiz" class="screen-overlay" aria-labelledby="quiz-title">
+    <div class="flow-card">
+      <button type="button" class="flow-close" id="quiz-close" aria-label="Close quiz">&times;</button>
+      <p class="flow-eyebrow">Assessment · optional</p>
+      <h1 class="flow-title" id="quiz-title" tabindex="-1">Quick Quiz</h1>
+      <div class="quiz-progress"><span id="quiz-progress-text"></span><div class="quiz-bar"><i id="quiz-bar-fill"></i></div></div>
+      <div id="quiz-body" class="quiz-body"></div>
+      <div class="flow-actions">
+        <button type="button" class="btn btn-ghost" id="quiz-back">&larr; Back</button>
+        <button type="button" class="btn btn-primary" id="quiz-next" disabled>Next &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results / Completion -->
+  <section id="screen-results" class="screen-overlay" aria-labelledby="results-title">
+    <div class="flow-card flow-card--center">
+      <p class="flow-eyebrow">Completion</p>
+      <div class="results-score" id="results-score"></div>
+      <h1 class="flow-title" id="results-title" tabindex="-1"></h1>
+      <p class="flow-lead" id="results-message"></p>
+      <div class="flow-actions">
+        <button type="button" class="btn btn-ghost" data-go="quiz" id="results-retake">Retake Quiz &#8635;</button>
+        <button type="button" class="btn btn-primary" data-go="explore">Back to Explorer</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data: generated geometry + hand-written editorial, then the engine -->
+  <script src="data/geometry.generated.js"></script>
+  <script src="data/editorial.js"></script>
+  <script src="script.js"></script>
+  <!-- Quiz content, then the storyboard flow controller (must load after the engine) -->
+  <script src="data/quiz.js"></script>
+  <script src="js/flow.js"></script>
+</body>
+</html>
