@@ -1,28 +1,26 @@
-# ── Dependencies ─────────────────────────────────────────────
+# ── Dependencies
 node_modules/
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ── OS cruft ─────────────────────────────────────────────────
+# ── OS cruft 
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# ── Editor / IDE ─────────────────────────────────────────────
+# ── Editor / IDE 
 .vscode/
 .idea/
 *.swp
 *~
 
-# ── Logs / temp ──────────────────────────────────────────────
+# ── Logs / temp
 *.log
 *.tmp
 
-# ── Local Claude Code config (machine-specific) ──────────────
-.claude/
 
-# ── Large source datasets (optional) ─────────────────────────
+# ── Large source datasets (optional)
 # The HYG CSV is ~34 MB. The committed data/geometry.generated.js is
 # generated FROM it, so the raw CSV is only needed to re-run
 # tools/generate.mjs. Uncomment to keep it out of the repo:
